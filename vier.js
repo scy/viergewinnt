@@ -111,13 +111,27 @@ class Field {
 }
 
 class Game {
-    constructor(rows, columns) {
+    constructor(rows, columns, ai = []) {
         this._field = new Field(rows, columns);
         this._currentPlayer = SYMBOL_A;
+        this._ai = ai;
         this._readline = require("readline").createInterface({
             input: process.stdin,
             output: process.stdout,
         });
+    }
+    doRandomAI() {
+        while (true) {
+            try {
+                let column = Math.floor(Math.random() * this._field.columnCount);
+                this._field.insert(column, this._currentPlayer);
+                return column;
+            } catch (err) {
+                if (!(err instanceof ColumnFullError)) {
+                    throw err;
+                }
+            }
+        }
     }
     async doValidInsert() {
         while (true) {
@@ -163,7 +177,11 @@ class Game {
         while (true) {
             this.showField();
             this.showPlayer();
-            await this.doValidInsert();
+            if (this._ai.includes(this._currentPlayer)) {
+                await this.ask(`${this._currentPlayer} plays ${this.doRandomAI()}. Hit Return to continue.`);
+            } else {
+                await this.doValidInsert();
+            }
             if (this._field.isFull()) {
                 this.showField();
                 console.log("\nThe field is full, nobody won!");
@@ -180,5 +198,6 @@ class Game {
     }
 }
 
-let g = new Game(9, 10);
+let g = new Game(9, 10, [SYMBOL_B]);
+
 g.run().then(() => process.exit());
