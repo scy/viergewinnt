@@ -161,6 +161,61 @@ class Game {
         }
         return this.doRandomAI();
     }
+    doSmartAI() {
+        let guesses = [];
+        let badColumns = [];
+        // Check whether I can win in one move.
+        for (let column = 0; column < this._field.columnCount; column++) {
+            let guess = this._field.clone();
+            try {
+                guess.insert(column, this._currentPlayer);
+                if (guess.getWinner() === this._currentPlayer) {
+                    // Winning move.
+                    this._field.insert(column, this._currentPlayer);
+                    return column;
+                }
+            } catch (err) {
+                if (!(err instanceof ColumnFullError)) {
+                    throw err;
+                }
+                // Playing column is not possible because it would be full, instead of having another catch() further
+                // down below, simply add the column to the list of bad ones.
+                badColumns.push(column);
+            }
+            guesses[column] = guess;
+        }
+        let otherPlayer = (this._currentPlayer === SYMBOL_A) ? SYMBOL_B : SYMBOL_A;
+        // For each of my previous experiments, check whether there's a move that would allow my opponent to win.
+        for (let [iPlayed, fieldAfterMe] of guesses.entries()) {
+            for (let column = 0; column < fieldAfterMe.columnCount; column++) {
+                let guess = fieldAfterMe.clone();
+                try {
+                    guess.insert(column, otherPlayer);
+                    if (guess.getWinner() === otherPlayer) {
+                        // Opponent would win.
+                        badColumns.push(iPlayed);
+                        break;
+                    }
+                } catch (err) {
+                    if (!(err instanceof ColumnFullError)) {
+                        throw err;
+                    }
+                }
+            }
+        }
+        // If all columns are bad, play something random.
+        if (badColumns.length === this._field.columnCount) {
+            return this.doRandomAI();
+        }
+        // Find a non-bad random column and play that.
+        while (true) {
+            let column = Math.floor(Math.random() * this._field.columnCount);
+            if (!badColumns.includes(column)) {
+                this._field.insert(column, this._currentPlayer);
+                return column;
+            }
+        }
+    }
     async doValidInsert() {
         while (true) {
             try {
@@ -206,7 +261,7 @@ class Game {
             this.showField();
             this.showPlayer();
             if (this._ai.includes(this._currentPlayer)) {
-                await this.ask(`${this._currentPlayer} plays ${this.doGreedyAI()}. Hit Return to continue.`);
+                await this.ask(`${this._currentPlayer} plays ${this.doSmartAI()}. Hit Return to continue.`);
             } else {
                 await this.doValidInsert();
             }
