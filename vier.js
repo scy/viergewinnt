@@ -29,14 +29,25 @@ class InvalidArgumentError extends GameError { }
 class ColumnFullError extends GameError { }
 
 class Field {
-    constructor(rows, columns) {
+    constructor(rows, columns, spaces) {
+        // TODO: refactor this so that spaces and rows/columns can't contradict each other
         if (rows < 3 || columns < 3) {
             throw new InvalidArgumentError("the field has to be at least 3x3 in size");
         }
-        this._spaces = [];
-        for (let i = 0; i < columns; i++) {
-            this._spaces.push(new Array(rows).fill(SYMBOL_EMPTY));
+        if (typeof spaces === "undefined") {
+            spaces = [];
+            for (let i = 0; i < columns; i++) {
+                spaces.push(new Array(rows).fill(SYMBOL_EMPTY));
+            }
         }
+        this._spaces = spaces;
+    }
+    clone() {
+        let spaces = [];
+        for (let column of this._spaces) {
+            spaces.push(column.slice());
+        }
+        return new Field(this.rowCount, this.columnCount, spaces);
     }
     get columnCount() {
         return this._spaces.length;
@@ -133,6 +144,23 @@ class Game {
             }
         }
     }
+    doGreedyAI() {
+        for (let column = 0; column < this._field.columnCount; column++) {
+            let guess = this._field.clone();
+            try {
+                guess.insert(column, this._currentPlayer);
+                if (guess.getWinner() === this._currentPlayer) {
+                    this._field.insert(column, this._currentPlayer);
+                    return column;
+                }
+            } catch (err) {
+                if (!(err instanceof ColumnFullError)) {
+                    throw err;
+                }
+            }
+        }
+        return this.doRandomAI();
+    }
     async doValidInsert() {
         while (true) {
             try {
@@ -178,7 +206,7 @@ class Game {
             this.showField();
             this.showPlayer();
             if (this._ai.includes(this._currentPlayer)) {
-                await this.ask(`${this._currentPlayer} plays ${this.doRandomAI()}. Hit Return to continue.`);
+                await this.ask(`${this._currentPlayer} plays ${this.doGreedyAI()}. Hit Return to continue.`);
             } else {
                 await this.doValidInsert();
             }
